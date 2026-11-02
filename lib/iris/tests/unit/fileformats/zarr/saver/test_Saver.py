@@ -135,10 +135,8 @@ class TestDeferredSaving:
         return lazy
 
     def test_compute_false_returns_a_real_delayed(self, tmp_path, lazy_cube):
-        # SciTools/iris#7291: the inherited delayed_completion() returns a
-        # plain dask.array.core.Array here, never a Delayed despite its own
-        # annotation, and the documented `result.compute()` raises
-        # AttributeError on it.
+        # SciTools/iris#7291: the documented `result.compute()` needs a
+        # real Delayed, not a dask array or a tuple of them.
         from dask.delayed import Delayed
 
         from iris.fileformats.zarr.saver import save

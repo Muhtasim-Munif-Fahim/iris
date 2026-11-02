@@ -216,6 +216,23 @@ _FACTORY_DEFNS = {
 }
 
 
+def _stores_completed(_stored) -> None:
+    """Return nothing, once the delayed writes it depends on have run.
+
+    A module-level function, rather than a closure, so that the
+    :class:`~dask.delayed.Delayed` built from it survives a plain
+    ``pickle.dumps``/``pickle.loads`` round trip.
+
+    Parameters
+    ----------
+    _stored : Any
+        The result of the delayed writes this is chained after. Unused,
+        beyond making this task depend on them.
+
+    """
+    return None
+
+
 class CFNameCoordMap:
     """Provide a simple CF name to CF coordinate mapping."""
 
@@ -2706,15 +2723,16 @@ class _CFSaver:
         if self._delayed_writes:
             # Create a single delayed da.store operation to complete the file.
             sources, targets = zip(*self._delayed_writes)
-            result = da.store(sources, targets, compute=False, lock=False)
+            stores = da.store(sources, targets, compute=False, lock=False)
+            # In recent dask versions, da.store(compute=False)
+            # returns a dask array for each source rather than a Delayed.
+            # Chain a single Delayed after them, to keep the documented
+            # return type.
+            result = dask.delayed(_stores_completed)(stores)
 
         else:
             # Return a do-nothing delayed, for usage consistency.
-            @dask.delayed
-            def no_op():
-                return None
-
-            result = no_op()
+            result = dask.delayed(_stores_completed)(None)
 
         return result
 
